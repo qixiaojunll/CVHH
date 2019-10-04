@@ -1,0 +1,27 @@
+function [W1,P0,DataLevel1,Label1] = AMG_P(W0,X,TrData,TrLabel )
+%CHAZHI Summary of this function goes here
+%   Detailed explanation goes here
+[a,b]=size(W0);
+[m,n] = find(X==0);  % m表示行下标，n表示列下标
+[c,d]=size(n);
+for i=1:d
+    W(:,i)=W0(:,n(1,i));
+    DataLevel1(i,:)=TrData(n(1,i),:);
+    Label1(i,:)=TrLabel(n(1,i),:);
+end
+for i=1:a
+    for j=1:d
+      P0(i,j)=W(i,j)./sum(W(i,:));
+    end
+end
+ for i=1:d
+     for j=1:d
+      P0(n(1,i),j)=0;
+     end
+     P0(n(1,i),i)=1;  % P0跨尺度插值矩阵
+ end
+ 
+ W1=P0'*W0*P0; %第n层的代表图像之间的相似度矩阵W
+
+end
+
