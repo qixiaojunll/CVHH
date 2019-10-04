@@ -1,0 +1,217 @@
+clear;clc;
+dataset=2;
+switch(dataset)
+    case 1
+        load('./demo_data/wikiData4.mat');
+        Ntrain = size(I_tr,1);
+        Ntest=size(I_te,1);
+        label = double(L_tr);
+        
+        [~,I_cls]=kmeans(I_tr,100);
+        [~,T_cls]=kmeans(T_tr,100);
+        
+        sigma = 0.4; % for normalized data
+        I_trx= exp(-sqdist(I_tr,I_cls)/(2*sigma*sigma));
+        I_trx = [I_trx, ones(Ntrain,1)];
+        I_tex= exp(-sqdist(I_te,I_cls)/(2*sigma*sigma));
+        I_tex = [I_tex, ones(Ntest,1)];
+        
+        T_trx= exp(-sqdist(T_tr,T_cls)/(2*sigma*sigma));
+        T_trx = [T_trx, ones(Ntrain,1)];
+        T_tex= exp(-sqdist(T_te,T_cls)/(2*sigma*sigma));
+        T_tex = [T_tex, ones(Ntest,1)];
+        
+        L=sparse(1:length(label),double(label),1);
+        Lte=sparse(1:length(L_te),double(L_te),1);
+        Lte=full(Lte);
+        L=full(L);
+    case 2
+        load('./demo_data/nuswide0.mat');
+        Ntrain = size(I_tr,1);
+        Ntest=size(I_te,1);
+        label = double(L_tr);
+        L=L_tr; Lte=L_te;
+        I_trx=I_tr;    I_tex=I_te;   T_trx=T_tr;    T_tex=T_te;
+    case 3
+        load('./demo_data/mirflickr25k3.mat');
+        Ntrain = size(I_tr,1);
+        Ntest=size(I_te,1);
+        label = double(L_tr);
+        L=L_tr; Lte=L_te;
+        I_trx=I_tr;    I_tex=I_te;   T_trx=T_tr;    T_tex=T_te;
+
+%         Ntrain=length(sampleInds);
+%         Ntest=size(I_te,1);
+%         I_trx=I_tr(sampleInds,:);    I_tex=I_te;   
+%         T_trx=T_tr(sampleInds,:);    T_tex=T_te;
+%         L=L_tr(sampleInds,:);        Lte=L_te;
+%         label=L;
+    otherwise
+        fprintf('error!\n');
+end
+
+Ltp=L*10;
+LLt=Ltp*Ltp';
+% learn G and F
+maxItr = 10;
+gmap.lambda = 1; gmap.loss = 'L2';
+Fmap.type = 'RBF';
+Fmap.nu = 1e-5; %  penalty parm for F term
+Fmap.lambda = 1e-2;
+
+tic
+
+bits={[16,16],[16,32],[16,64],[16,128],...
+    [32,16],[32,32],[32,64],[32,128],...
+    [64,16],[64,32],[64,64],[64,128],...
+    [128,16],[128,32],[128,64],[128,128]};
+
+%% run algo
+for bN=1:length(bits)
+I_nbits = bits{bN}(1);
+T_nbits =bits{bN}(2);
+fprintf('Current bist is: Img=%f  Txt=%f\n',I_nbits,T_nbits);
+% Init Z
+Zi=sign(randn(Ntrain,I_nbits));
+Zt=sign(randn(Ntrain,T_nbits));
+
+debug = 0;
+[IG,IF,IH]=SDH(I_trx,label,Zi,gmap,Fmap,[],maxItr,debug);
+[~,~,TH]=SDH(T_trx,label,Zt,gmap,Fmap,[],maxItr,debug);
+Lt=LLt*IH*inv(IH'*IH+0.1*ones(size(IH'*IH)));%lt=TH*W
+Li=LLt*TH*inv(TH'*TH+0.1*ones(size(TH'*TH)));
+W=ones(T_nbits,I_nbits);
+err=[];
+
+for r=[0.3]
+    for iter=1:20
+        %[G, F, H] = SDH(PhiX,label,Zinit,gmap,Fmap,[],maxItr,debug);
+        
+        [TG,TF,TH]=SDH(T_trx,Lt,Zt,gmap,Fmap,[],maxItr,debug);
+        W=(1-r)*W+r*TG.W;
+        Li=(1-r)*Li+r*(LLt/TH');
+        
+        tp=(LLt-TH*W*IH').^2;
+        tp=mean(tp(:));
+        tpp=tp;
+        err=[err,tp];
+        
+        [IG,IF,IH]=SDH(I_trx,Li,Zi,gmap,Fmap,[],maxItr,debug);
+        W=(1-r)*W+r*IG.W';
+        Lt=(1-r)*Lt+r*(LLt/IH');
+        
+        tp=(LLt-TH*W*IH').^2;
+        tp=mean(tp(:));
+        err=[err,tp];
+        fprintf('One.   iter is %d,and mean err is %.6ef    ,%.6e\n',iter,tpp,tp);
+    end
+end
+
+% for r=[0.1]
+%     for iter=1:20
+%         %[G, F, H] = SDH(PhiX,label,Zinit,gmap,Fmap,[],maxItr,debug);
+%         
+%         [TG,TF,TH]=SDH(T_trx,Lt,Zt,gmap,Fmap,[],maxItr,debug);
+%         W=(1-r)*W+r*TG.W;
+%         Li=(1-r)*Li+r*(LLt/TH');
+%         
+%         tp=(LLt-TH*W*IH').^2;
+%         tp=mean(tp(:));
+%         tpp=tp;
+%         err=[err,tp];
+%         
+%         [IG,IF,IH]=SDH(I_trx,Li,Zi,gmap,Fmap,[],maxItr,debug);
+%         W=(1-r)*W+r*IG.W';
+%         Lt=(1-r)*Lt+r*(LLt/IH');
+%         
+%         tp=(LLt-TH*W*IH').^2;
+%         tp=mean(tp(:));
+%         err=[err,tp];
+%         fprintf('Two.  iter is %d,and mean err is %.6ef    ,%.6e\n',iter,tpp,tp);
+%     end
+% end
+
+
+% for r=[0.05]
+%     maxItr = 20;
+%     for iter=1:10
+%         %[G, F, H] = SDH(PhiX,label,Zinit,gmap,Fmap,[],maxItr,debug);
+%         
+%         [TG,TF,TH]=SDH(T_trx,Lt,Zt,gmap,Fmap,[],maxItr,debug);
+%         W=(1-r)*W+r*TG.W;
+%         Li=(1-r)*Li+r*(LLt/TH');
+%         
+%         tp=(LLt-TH*W*IH').^2;
+%         tp=mean(tp(:));
+%         tpp=tp;
+%         err=[err,tp];
+%         
+%         [IG,IF,IH]=SDH(I_trx,Li,Zi,gmap,Fmap,[],maxItr,debug);
+%         W=(1-r)*W+r*IG.W';
+%         Lt=(1-r)*Lt+r*(LLt/IH');
+%         
+%         tp=(LLt-TH*W*IH').^2;
+%         tp=mean(tp(:));
+%         err=[err,tp];
+%         fprintf('Three.  iter is %d,and mean err is %.6ef    ,%.6e\n',iter,tpp,tp);
+%     end
+% end
+
+PI=IF.W;
+PT=TF.W;
+disI2T=(I_tex*PI*W')*TH';
+disI2T=exp(-disI2T);
+disT2T=(T_tex*PT)*TH';
+disT2T=exp(-disT2T);
+disT2I=(T_tex*PT*W)*IH';
+disT2I=exp(-disT2I);
+disI2I=(I_tex*PI)*IH';
+disI2I=exp(-disI2I);
+[ mapi2t,i2tpr,i2trr] = perf_metric4Label( L, Lte,disI2T' );
+[ mapt2i,t2ipr,t2irr] = perf_metric4Label( L, Lte,disT2I' );
+[ mapt2t,t2tpr,t2trr] = perf_metric4Label( L, Lte,disT2T' );
+[ mapi2i,i2ipr,i2irr] = perf_metric4Label( L, Lte,disI2I' );
+rs.mapi2i=mapi2i;
+rs.mapi2t=mapi2t;
+rs.mapt2i=mapt2i;
+rs.mapt2t=mapt2t;
+rs.t2tpr=t2tpr;
+rs.t2trr=t2trr;
+rs.t2ipr=t2ipr;
+rs.t2irr=t2irr;
+rs.i2ipr=i2ipr;
+rs.i2irr=i2irr;
+rs.i2tpr=i2tpr;
+rs.i2trr=i2trr;
+
+rs64_64=rs;
+strb=[num2str(I_nbits),'_',num2str(T_nbits)];
+
+eval(['rs',strb,'=rs;']);
+
+switch dataset
+    case 1
+        save(['./show_results/wiki/4/rs',strb,'.mat'],['rs',strb]);
+        save(['./result_demo/wiki/4/result_demo_Cross_',strb,'.mat']);
+    case 2
+        save(['./show_results/nus/0/rs',strb,'.mat'],['rs',strb]);
+        save(['./result_demo/nus/0/result_demo_Cross_',strb,'.mat']);
+    case 3
+        save(['./show_results/mir/3/rs',strb,'.mat'],['rs',strb]);
+        save(['./result_demo/mir/3/result_demo_Cross_',strb,'.mat']);
+    otherwise
+        fprintf('error\n');
+end
+
+
+end
+
+toc
+
+% plot(111:2:160,err(111:2:end),'r',112:2:160,err(112:2:end),'g')
+%clear,load result_demo_Cross_32_64.mat;
+%plot(1:50:2018,i2tpr);grid on;
+%plot(i2trr,i2tpr)
+
+%plot(err(60:end))
+%%
