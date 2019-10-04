@@ -1,0 +1,61 @@
+clear ;
+clc;
+
+load('Test1.mat')
+load('Train1.mat')
+[a,b] = size(TrIData);
+[f,g] = size(TrTData);
+
+for i=1:a
+    sub1 = repmat(TrIData(i,:),a,1) - TrIData;
+    square1 = sub1.^2;
+    he1 = sum(square1,2);
+    d1 = sqrt(he1);
+    D1(:,i) = d1(:,1);%求图像欧式距离
+end
+
+% D = sqrt(TrIData.^2*ones(size(TrIData'))+ones(size(TrIData))*(TrIData').^2-2*TrIData*TrIData');
+% D = double(D);
+% for i=size(TrIData,1)
+%     DD(i,:) = diag((repmat(TrIData(i,:),a,1)-TrIData)*(repmat(TrIData(i,:),a,1)-TrIData)');
+% end
+
+sigma = mean(mean(D1,2));
+ 
+TrI_W= exp(-D1.^2/(2*sigma*sigma)); %图像训练集之间的W1
+[c,e] = size(TtIData);
+
+for i=1:c
+    sub2 = repmat(TtIData(i,:),a,1) - TrIData;
+    square2 = sub2.^2;
+    he2 = sum(square2,2);
+    d2 = sqrt(he2);
+    D2(:,i) = d2(:,1);    %求欧式距离
+end
+D = sqrt(TrIData.^2*ones(size(TtIData'))+ones(size(TrIData))*(TtIData').^2-2*TrIData*TtIData');
+D2=D2';
+TrTtI_W= exp(-D2.^2/(2*sigma*sigma)); %图像训练集和测试集之间的W2
+
+for i=1:f
+    sub3 = repmat(TrTData(i,:),f,1) - TrTData;
+    square3 = sub3.^2;
+    he3 = sum(square3,2);
+    d3 = sqrt(he3);
+    D3(:,i) = d3(:,1);    %求文本欧式距离
+end
+ sigma = mean(mean(D3,2));
+ TrT_W= exp(-D3.^2/(2*sigma*sigma)); %文本训练集之间的W3
+[h,i] = size(TtTData);
+
+for i=1:h
+    sub4 = repmat(TtTData(i,:),f,1) - TrTData;
+    square4 = sub4.^2;
+    he4 = sum(square4,2);
+    d4 = sqrt(he4);
+    D4(:,i) = d4(:,1);    %求欧式距离
+end
+D4=D4';
+
+TrTtT_W= exp(-D4.^2/(2*sigma*sigma)); %文本训练集和测试集之间的W4
+save W TrI_W TrTtI_W TrT_W TrTtT_W;
+save D D1 D2 D3 D4;
