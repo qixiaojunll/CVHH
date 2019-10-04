@@ -1,0 +1,26 @@
+function [S1,S2] = dist2sim(D1,D2, nb, k)
+% D         : pairwise distance matrix, NxN
+% nb        : number of neighbors for variance estimation, 1x1
+% k         : constant before variance, 1x1
+% S         : pairwise similarity matrix, NxN
+%
+% Author    : Jiayan Jiang
+% Note      : The PSD property of D is not checked or enforced.
+
+N = size(D1, 1);
+
+D1 = (D1+D1')/2;       % enforce symmetricity  对称性
+D1(1:N+1:end) = 0;   % enforce reflexivity  自反性  保证对角线为0
+
+[dumb, IDX] = sort(D1, 2);
+
+sig2 = 0;
+for i = 1:N
+    idx = IDX(i, :);
+    idx(idx==i) = []; % self-exclusion 自我排除
+    sig2 = sig2 + sum(D1(i, idx(1:nb)));
+end;
+sig2 = sig2 / (nb*N);
+S1 = exp(-D1./ (k*sig2));
+S2 = exp(-D2./ (k*sig2));
+end
