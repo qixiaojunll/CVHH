@@ -1,0 +1,43 @@
+clear ;
+clc;
+
+load('S.mat')
+ % kNN W Matrix
+ NR_OF_KNN=20;
+[~ , knn_ids1] = sort(S1,2,'descend');
+[~ , knn_ids3] = sort(S3,2,'descend');
+TrS_kNN1 = zeros(size(S1)); 
+TrS_kNN2 = zeros(size(S3));
+
+% for i = 1 : size(S1,1)
+%        TrS_kNN(i,knn_ids1(i,1:NR_OF_KNN)) = S1(i,knn_ids1(i,1:NR_OF_KNN) && knn_ids3(i,1:NR_OF_KNN));
+% end
+
+for i = 1 : size(S1,1)
+    TrS_kNN1(i,knn_ids1(i,1:NR_OF_KNN)) = S1(i,knn_ids1(i,1:NR_OF_KNN));
+end
+
+for j = 1 : size(S3,1)
+    TrS_kNN2(j,knn_ids1(j,1:NR_OF_KNN)) = S3(j,knn_ids3(j,1:NR_OF_KNN));
+end   
+TrS_kNN = TrS_kNN1 + TrS_kNN2;
+
+[~ , knn_ids2] = sort(S2,2,'descend');
+[~ , knn_ids4] = sort(S4,2,'descend');
+TrTtS_kNN1 = zeros(size(S2)); 
+TrTtS_kNN2 = zeros(size(S4)); 
+
+for i = 1 : size(S2,1)
+    TrTtS_kNN1(i,knn_ids2(i,1:NR_OF_KNN)) = S2(i,knn_ids2(i,1:NR_OF_KNN));
+end
+
+for j = 1 : size(S4,1)
+    TrTtS_kNN2(j,knn_ids4(j,1:NR_OF_KNN)) = S4(j,knn_ids2(j,1:NR_OF_KNN));
+end
+TrTtS_kNN = TrTtS_kNN1 + TrTtS_kNN2;
+
+% for j = 1 : size(S2,1)
+%      TrTtS_kNN(j,knn_ids2(j,1:NR_OF_KNN)) = S2(j,knn_ids2(j,1:NR_OF_KNN));
+% end
+
+save S_kNN TrS_kNN TrTtS_kNN;
