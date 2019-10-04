@@ -1,6 +1,0 @@
-clear ;
-clc;
- load('D.mat')
- [S1,S2] = dist2sim(D1,D2, 10, 0.1);
- [S3,S4] = dist2sim(D3,D4, 10, 0.1);
- save S S1 S2 S3 S4;
